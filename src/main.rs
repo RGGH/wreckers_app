@@ -93,6 +93,8 @@ enum Message {
     StopPressed,
 }
 
+
+
 impl App {
     fn new() -> (Self, Task<Message>) {
         let app = App {
@@ -214,6 +216,16 @@ impl App {
             .into()
     }
 }
+
+impl Drop for App {
+    fn drop(&mut self) {
+        if let Some(mut child) = self.player.take() {
+            let _ = child.kill();
+            let _ = child.wait();
+        }
+    }
+}
+
 
 /// Spawn `mpv` as a headless audio-only player pointed at the live stream.
 /// Swap the binary/args here if you'd rather use `ffplay` or `vlc --intf dummy`.
