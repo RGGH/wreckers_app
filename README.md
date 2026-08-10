@@ -1,6 +1,6 @@
 # Wreckers Radio Desktop Player
 
-A tiny desktop player for **Wreckers Radio**.
+A lightweight desktop player for **Wreckers Radio**.
 
 Donate to help the station : https://wreckers.radio/ - link on the homepage.
 
