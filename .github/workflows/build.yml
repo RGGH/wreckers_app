@@ -34,7 +34,7 @@ jobs:
         shell: pwsh
         run: |
           Copy-Item `
-            "target/release/wreckers-radio.exe" `
+            "target/release/wreckers_app.exe" `
             "Wreckers-Radio-Windows.exe"
 
       - name: Upload Windows EXE
@@ -71,7 +71,7 @@ jobs:
           mkdir -p "$APP_DIR/Contents/Resources"
 
           cp \
-            target/release/wreckers-radio \
+            target/release/wreckers_app \
             "$APP_DIR/Contents/MacOS/wreckers-radio"
 
           cat > "$APP_DIR/Contents/Info.plist" <<'EOF'
@@ -160,7 +160,7 @@ jobs:
           mkdir -p linux-package
 
           cp \
-            target/release/wreckers-radio \
+            target/release/wreckers_app \
             linux-package/wreckers-radio
 
           chmod +x \
