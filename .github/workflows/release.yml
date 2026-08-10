@@ -1,4 +1,4 @@
-```yaml
+
 name: Build Releases
 
 on:
@@ -99,4 +99,3 @@ jobs:
         with:
           files: release-files/*
           generate_release_notes: true
-```
