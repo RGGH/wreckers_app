@@ -1,4 +1,5 @@
 # Wreckers Radio Desktop Player
+[![Build and Release](https://github.com/RGGH/wreckers_app/actions/workflows/build.yml/badge.svg)](https://github.com/RGGH/wreckers_app/actions/workflows/build.yml)
 
 A lightweight desktop player for **Wreckers Radio**.
 
