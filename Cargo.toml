@@ -1,0 +1,10 @@
+[package]
+name = "wreckers_app"
+version = "0.1.0"
+edition = "2024"
+author = "RGGH"
+
+[dependencies]
+iced = { version = "0.14.0", features = ["tokio"] }
+reqwest = { version = "0.13.4", features = ["json"] }
+serde = { version = "1.0.229", features = ["derive"] }
