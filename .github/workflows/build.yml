@@ -1,4 +1,4 @@
-```yaml
+
 name: Build and Release
 
 on:
@@ -301,4 +301,4 @@ jobs:
           name: Wreckers Radio ${{ github.ref_name }}
           files: release-files/*
           generate_release_notes: true
-```
+
