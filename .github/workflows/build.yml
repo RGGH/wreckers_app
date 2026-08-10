@@ -1,3 +1,4 @@
+```yaml
 name: Build and Release
 
 on:
@@ -144,9 +145,7 @@ jobs:
       - name: Install AppImage dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y \
-            fuse \
-            libfuse2
+          sudo apt-get install -y fuse libfuse2
 
       - name: Build
         run: cargo build --release
@@ -189,7 +188,7 @@ jobs:
           mkdir -p WreckersRadio.AppDir/usr/share/applications
 
           cp \
-            target/release/wreckers-radio \
+            target/release/wreckers_app \
             WreckersRadio.AppDir/usr/bin/wreckers-radio
 
           chmod +x \
@@ -210,8 +209,6 @@ jobs:
             WreckersRadio.AppDir/wreckers-radio.desktop \
             WreckersRadio.AppDir/usr/share/applications/
 
-          # Temporary 1x1 icon.
-          # Replace this with the real Wreckers Radio icon later.
           python3 - <<'PY'
           import struct
           import zlib
@@ -270,6 +267,7 @@ jobs:
 
   release:
     name: Create GitHub Release
+
     needs:
       - windows
       - macos
@@ -303,4 +301,4 @@ jobs:
           name: Wreckers Radio ${{ github.ref_name }}
           files: release-files/*
           generate_release_notes: true
-
+```
