@@ -1,5 +1,3 @@
-Absolutely — here's a README aimed at regular users, with separate installation instructions for **Linux, macOS, and Windows**, plus build-from-source instructions for developers.
-
 # Wreckers Radio Desktop Player
 
 A tiny desktop player for **Wreckers Radio**.
