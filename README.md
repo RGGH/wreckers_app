@@ -2,7 +2,7 @@
 
 A tiny desktop player for **Wreckers Radio**.
 
-Donate to help the station : https://wreckers.radio/ - link on the homepage
+Donate to help the station : https://wreckers.radio/ - link on the homepage.
 
 It displays the currently playing artist/title and listener count, and lets you play the live radio stream using [`mpv`](https://mpv.io/) under the hood.
 
