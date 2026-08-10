@@ -33,7 +33,7 @@ pub fn main() -> iced::Result {
     iced::application(App::new, App::update, App::view)
         .title(App::title)
         .subscription(App::subscription)
-        .theme(|_state: &App| Theme::GruvboxDark)
+        .theme(|_state: &App| Theme::TokyoNightLight)
         .window_size((420.0, 260.0))
         .run()
 }
