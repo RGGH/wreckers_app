@@ -1,5 +1,6 @@
 # Wreckers Radio Desktop Player
-[![Build and Release](https://github.com/RGGH/wreckers_app/actions/workflows/build.yml/badge.svg)](https://github.com/RGGH/wreckers_app/actions/workflows/build.yml)
+
+<img width="433" height="561" alt="Screenshot from 2026-08-20 08-49-50" src="https://github.com/user-attachments/assets/9159b05b-c7f3-47a3-a9ac-e11b2539c7cd" />
 
 A lightweight desktop player for **Wreckers Radio**.
 
