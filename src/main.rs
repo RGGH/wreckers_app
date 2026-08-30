@@ -4,10 +4,21 @@
 // artist/title, displays the current artwork, and streams the live MP3
 // by shelling out to `mpv`.
 //
+// Also reads a "Blacklist.txt" file (one entry per line, matched
+// case-insensitively against "<artist> <title>"). If the currently
+// playing track matches a blacklist entry, the mpv volume is set to 0
+// via mpv's JSON IPC socket. When the track changes to something that
+// no longer matches, volume is restored to 100.
+//
 // Requires `mpv` to be installed and on PATH:
 //
 //   Linux:  sudo apt install mpv
 //   macOS: brew install mpv
+//   Windows: winget install mpv (or download from mpv.io and add to PATH)
+//
+// Blacklist.txt is looked for next to the executable, and failing that,
+// in the current working directory. Lines starting with '#' and blank
+// lines are ignored.
 //
 // Build & run:
 //
@@ -18,6 +29,8 @@ use iced::{Alignment, Element, Length, Subscription, Task, Theme};
 
 use serde::Deserialize;
 
+use std::io::Write;
+use std::path::PathBuf;
 use std::process::{Child, Command, Stdio};
 use std::time::Duration;
 
@@ -30,6 +43,10 @@ const STREAM_URL: &str =
 
 // The API response is cached for 15 seconds server-side.
 const POLL_SECS: u64 = 15;
+
+// Name of the blacklist file, searched for next to the executable and
+// in the current working directory.
+const BLACKLIST_FILE: &str = "Blacklist.txt";
 
 pub fn main() -> iced::Result {
     iced::application(App::new, App::update, App::view)
@@ -97,6 +114,15 @@ struct App {
 
     // Running mpv process.
     player: Option<Child>,
+
+    // Path used for mpv's JSON IPC socket / named pipe for this run.
+    ipc_path: String,
+
+    // Lower-cased blacklist entries loaded from Blacklist.txt.
+    blacklist: Vec<String>,
+
+    // Whether we've currently muted playback because of a blacklist match.
+    muted: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -129,6 +155,10 @@ impl App {
 
             playback: Playback::Stopped,
             player: None,
+
+            ipc_path: ipc_path(),
+            blacklist: load_blacklist(),
+            muted: false,
         };
 
         (
@@ -144,6 +174,45 @@ impl App {
     fn subscription(&self) -> Subscription<Message> {
         iced::time::every(Duration::from_secs(POLL_SECS))
             .map(|_| Message::Tick)
+    }
+
+    // Checks the current artist/title against the blacklist and mutes or
+    // unmutes the running mpv instance (via IPC) as needed. No-op if
+    // nothing is currently playing.
+    fn apply_blacklist(&mut self) {
+        if self.playback != Playback::Playing {
+            return;
+        }
+
+        let blacklisted =
+            is_blacklisted(&self.artist, &self.title, &self.blacklist);
+
+        if blacklisted && !self.muted {
+            self.muted = true;
+
+            match send_ipc_volume(&self.ipc_path, 0) {
+                Ok(()) => {
+                    self.status = Some(format!(
+                        "Muted (blacklisted): {} — {}",
+                        self.artist, self.title
+                    ));
+                }
+                Err(err) => {
+                    self.status =
+                        Some(format!("Couldn't mute via mpv IPC: {err}"));
+                }
+            }
+        } else if !blacklisted && self.muted {
+            self.muted = false;
+
+            match send_ipc_volume(&self.ipc_path, 100) {
+                Ok(()) => self.status = None,
+                Err(err) => {
+                    self.status =
+                        Some(format!("Couldn't unmute via mpv IPC: {err}"));
+                }
+            }
+        }
     }
 
     fn update(&mut self, message: Message) -> Task<Message> {
@@ -164,6 +233,9 @@ impl App {
                 };
 
                 self.listeners = Some(resp.listeners.current);
+
+                // Track changed (or first poll): re-evaluate the blacklist.
+                self.apply_blacklist();
 
                 let new_art_url = resp.now_playing.song.art;
 
@@ -207,11 +279,19 @@ impl App {
 
             Message::PlayPressed => {
                 if self.player.is_none() {
-                    match spawn_player(STREAM_URL) {
+                    match spawn_player(STREAM_URL, &self.ipc_path) {
                         Ok(child) => {
                             self.player = Some(child);
                             self.playback = Playback::Playing;
+                            self.muted = false;
                             self.status = None;
+
+                            // Give mpv a brief moment to create its IPC
+                            // socket/pipe before we might try to write to
+                            // it, then check whether the track that's
+                            // about to play is already blacklisted.
+                            std::thread::sleep(Duration::from_millis(300));
+                            self.apply_blacklist();
                         }
 
                         Err(err) => {
@@ -233,6 +313,7 @@ impl App {
                 }
 
                 self.playback = Playback::Stopped;
+                self.muted = false;
 
                 Task::none()
             }
@@ -279,6 +360,12 @@ impl App {
                 .into(),
         };
 
+        let mute_label: Element<'_, Message> = if self.muted {
+            text("🔇 muted (blacklisted track)").size(12).into()
+        } else {
+            Space::new().height(0).into()
+        };
+
         let mut content = column![
             text("Wreckers Radio").size(24),
 
@@ -289,6 +376,8 @@ impl App {
             now_playing,
 
             text(listeners).size(14),
+
+            mute_label,
 
             Space::new().height(16),
 
@@ -323,19 +412,113 @@ impl Drop for App {
     }
 }
 
-// Spawn mpv as a headless audio-only player pointed at the live stream.
-fn spawn_player(url: &str) -> std::io::Result<Child> {
+// Spawn mpv as a headless audio-only player pointed at the live stream,
+// with a JSON IPC server enabled so we can adjust volume at runtime.
+fn spawn_player(url: &str, ipc_path: &str) -> std::io::Result<Child> {
     Command::new("mpv")
         .args([
             "--no-video",
             "--really-quiet",
             "--force-seekable=no",
+            "--volume=100",
+            &format!("--input-ipc-server={ipc_path}"),
             url,
         ])
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::null())
         .spawn()
+}
+
+// Build a per-run path/name for mpv's IPC endpoint.
+//
+// On Unix this is a filesystem path to a socket in the temp directory.
+// On Windows this is a named pipe name under \\.\pipe\.
+#[cfg(unix)]
+fn ipc_path() -> String {
+    std::env::temp_dir()
+        .join(format!("wreckersradio-mpv-{}.sock", std::process::id()))
+        .to_string_lossy()
+        .into_owned()
+}
+
+#[cfg(windows)]
+fn ipc_path() -> String {
+    format!(r"\\.\pipe\wreckersradio-mpv-{}", std::process::id())
+}
+
+// Send a "set_property volume <level>" command to the running mpv
+// instance over its IPC socket/pipe.
+fn send_ipc_volume(ipc_path: &str, level: u8) -> Result<(), String> {
+    let cmd = format!(
+        r#"{{"command": ["set_property", "volume", {level}]}}"#
+    );
+
+    send_ipc_line(ipc_path, &cmd)
+}
+
+#[cfg(unix)]
+fn send_ipc_line(ipc_path: &str, line: &str) -> Result<(), String> {
+    use std::os::unix::net::UnixStream;
+
+    let mut stream =
+        UnixStream::connect(ipc_path).map_err(|e| e.to_string())?;
+
+    writeln!(stream, "{line}").map_err(|e| e.to_string())
+}
+
+#[cfg(windows)]
+fn send_ipc_line(ipc_path: &str, line: &str) -> Result<(), String> {
+    use std::fs::OpenOptions;
+
+    // mpv's named pipe can be opened like a regular file on Windows once
+    // the server side is listening (CreateFile under the hood).
+    let mut pipe = OpenOptions::new()
+        .read(true)
+        .write(true)
+        .open(ipc_path)
+        .map_err(|e| e.to_string())?;
+
+    writeln!(pipe, "{line}").map_err(|e| e.to_string())
+}
+
+// Load blacklist entries from Blacklist.txt, checking next to the
+// executable first, then the current working directory. Returns an
+// empty list (i.e. nothing is ever blacklisted) if no file is found.
+fn load_blacklist() -> Vec<String> {
+    let mut candidates: Vec<PathBuf> = Vec::new();
+
+    if let Ok(exe) = std::env::current_exe() {
+        if let Some(dir) = exe.parent() {
+            candidates.push(dir.join(BLACKLIST_FILE));
+        }
+    }
+
+    candidates.push(PathBuf::from(BLACKLIST_FILE));
+
+    for candidate in candidates {
+        if let Ok(content) = std::fs::read_to_string(&candidate) {
+            return content
+                .lines()
+                .map(|line| line.trim().to_lowercase())
+                .filter(|line| !line.is_empty() && !line.starts_with('#'))
+                .collect();
+        }
+    }
+
+    Vec::new()
+}
+
+// True if any blacklist entry appears (case-insensitively) in the
+// combined "<artist> <title>" string.
+fn is_blacklisted(artist: &str, title: &str, blacklist: &[String]) -> bool {
+    if blacklist.is_empty() {
+        return false;
+    }
+
+    let haystack = format!("{artist} {title}").to_lowercase();
+
+    blacklist.iter().any(|entry| haystack.contains(entry.as_str()))
 }
 
 // Fetch only the now-playing JSON.
