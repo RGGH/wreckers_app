@@ -1,6 +1,6 @@
 # Wreckers Radio Desktop Player
 
-<img width="433" height="561" alt="Screenshot from 2026-08-20 08-49-50" src="https://github.com/user-attachments/assets/9159b05b-c7f3-47a3-a9ac-e11b2539c7cd" />
+<img width="437" height="593" alt="wrrad" src="https://github.com/user-attachments/assets/508f98b6-27aa-4499-80c0-348e821b186c" />
 
 A lightweight desktop player for **Wreckers Radio**.
 
@@ -319,6 +319,8 @@ The application uses:
 * [mpv](https://mpv.io/)
 
 The application does not decode the radio stream itself. `mpv` handles streaming, buffering, reconnects and audio playback.
+
+<img width="2920" height="1360" alt="iced-app" src="https://github.com/user-attachments/assets/f4347514-86df-42ad-b35e-b8b7ddfb539d" />
 
 ---
 
